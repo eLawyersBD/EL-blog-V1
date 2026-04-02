@@ -592,6 +592,25 @@ export const blogDataRaw = [
     ],
     penalties: "If an exempted company fails to meet conditions (like failing to reinvest 30% of its exempted income) or commits tax evasion, the NBR will retroactively cancel the exemption and demand all back taxes."
   },
+  {
+    id: 100,
+    title: "The Complete Guide to Company Tax Return Filing in Bangladesh (2026)",
+    category: "Tax & VAT Management",
+    intro: "The fiscal landscape of Bangladesh is currently undergoing its most significant transformation since the country's independence. As the nation prepares for its graduation from the Least Developed Country (LDC) status in 2026, the government has prioritized the modernization of its revenue collection mechanisms to ensure economic sustainability.",
+    guidelines: "Under the Income Tax Act, 2023, a 'Company Tax Return' is defined as a comprehensive statutory declaration of a corporate entity's total income, allowable expenses, assets, liabilities, and the resulting tax obligation for a specific income year.",
+    deadlines: "The 'Tax Day' is the legal deadline by which a taxpayer must submit their return. For companies, the Tax Day is generally defined as the 15th day of the ninth month following the end of the income year. However, the NBR has recently issued a notification extending the deadline for the current assessment year to April 15, 2026.",
+    rates: "The government has gradually reduced corporate tax rates to foster a more competitive business environment. The corporate tax rate a company pays is often 'conditional' on its banking compliance. Rates range from 20% for publicly traded companies to 45% for non-listed mobile phone operators.",
+    documents: "Every registered company must undergo a statutory audit by a firm of Chartered Accountants registered with the ICAB. A landmark development is the mandatory inclusion of a Digital Verification Code (DVC) on every audit report.",
+    process: [
+      "Preparation of Audited Financial Statements: Undergo a statutory audit by an ICAB registered firm and obtain a DVC.",
+      "Calculation of Taxable Income: Reconcile accounting profit to taxable income by identifying inadmissible expenses under Section 55.",
+      "Banking Channel Mandate: Ensure compliance with Section 55 disallowances for cash transactions.",
+      "Filing: Submit the company tax return by the extended deadline of April 15, 2026."
+    ],
+    penalties: "Missing the April 15, 2026 deadline triggers severe penalties under Section 174: a lump-sum fine of 10% of the tax imposed (minimum BDT 5,000), a daily penalty of BDT 50, and an additional interest tax of 2% per month.",
+    isCustomComponent: true,
+    customComponentId: "CompanyTaxReturnPost"
+  },
   // PART III: CORPORATE STRUCTURING & LICENSING 
   {
     id: 32,
@@ -626,7 +645,9 @@ export const blogDataRaw = [
       "Submission: File the statutory forms (Form I, VI, IX, and XII) alongside the MoA/AoA.",
       "Incorporation: Upon review, the RJSC issues the digital Certificate of Incorporation."
     ],
-    penalties: "Operating a business using 'Ltd.' without proper RJSC registration constitutes corporate fraud, leaving promoters personally liable for all debts."
+    penalties: "Operating a business using 'Ltd.' without proper RJSC registration constitutes corporate fraud, leaving promoters personally liable for all debts.",
+    isCustomComponent: true,
+    customComponentId: "CorporateRegistrationPost"
   },
   {
     id: 34,

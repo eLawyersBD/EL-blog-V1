@@ -26,11 +26,24 @@ import {
   X,
   ListChecks,
   Moon,
-  Sun
+  Sun,
+  Twitter,
+  Facebook,
+  Linkedin,
+  Share2,
+  MessageSquare,
+  MessageCircle,
+  Mail
 } from 'lucide-react';
 import { categories, blogData } from './data';
+import CorporateRegistrationPost from './components/CorporateRegistrationPost';
+import CompanyTaxReturnPost from './components/CompanyTaxReturnPost';
 import { GoogleGenAI } from "@google/genai";
 import { motion, AnimatePresence } from 'motion/react';
+import { SocialShareButtons } from './components/SocialShareButtons';
+import { Footer } from './components/Footer';
+import { LegalAssistant } from './components/LegalAssistant';
+import { Chatbot } from './components/Chatbot';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState("home"); // home, post
@@ -54,6 +67,7 @@ export default function App() {
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [generatingIds, setGeneratingIds] = useState<Set<string>>(new Set());
   const [darkMode, setDarkMode] = useState(false);
+  const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
   const [isBlogDropdownOpen, setIsBlogDropdownOpen] = useState(false);
   const [isMobileSubMenuOpen, setIsMobileSubMenuOpen] = useState(false);
   const blogDropdownRef = useRef<HTMLDivElement>(null);
@@ -63,6 +77,29 @@ export default function App() {
   const [trackingId, setTrackingId] = useState("");
   const [isTracking, setIsTracking] = useState(false);
   const [trackingResult, setTrackingResult] = useState<any>(null);
+  const [apiQuotaExceeded, setApiQuotaExceeded] = useState(false);
+  const [comments, setComments] = useState<Record<number, {name: string, text: string, date: string}[]>>({});
+  const [commentName, setCommentName] = useState("");
+  const [commentText, setCommentText] = useState("");
+
+  const handleCommentSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedPost || !commentName.trim() || !commentText.trim()) return;
+    
+    const newComment = {
+      name: commentName,
+      text: commentText,
+      date: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+    };
+    
+    setComments(prev => ({
+      ...prev,
+      [selectedPost.id]: [...(prev[selectedPost.id] || []), newComment]
+    }));
+    
+    setCommentName("");
+    setCommentText("");
+  };
 
   const handleTrackCase = () => {
     if (!trackingId.trim()) return;
@@ -172,6 +209,27 @@ export default function App() {
     const genKey = `${post.id}-${index}`;
     if (generatingIds.has(genKey)) return;
 
+    const fallbackImage = "https://images.unsplash.com/photo-1589829085413-56de8ae18c73?auto=format&fit=crop&q=80&w=800";
+
+    if (apiQuotaExceeded) {
+      setAiImages(prev => {
+        const currentImages = prev[post.id] || [];
+        const updatedImages = [...currentImages];
+        if (index === 0) {
+          return {
+            ...prev,
+            [post.id]: [fallbackImage, ...currentImages.filter(img => img !== fallbackImage)].slice(0, 5)
+          };
+        }
+        updatedImages[index] = fallbackImage;
+        return {
+          ...prev,
+          [post.id]: updatedImages.slice(0, 5)
+        };
+      });
+      return;
+    }
+
     setGeneratingIds(prev => new Set(prev).add(genKey));
     setIsGeneratingImage(true);
     try {
@@ -223,8 +281,30 @@ export default function App() {
           };
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Image Generation Error:", error);
+      
+      // Check for quota exceeded error
+      if (error?.status === 429 || error?.message?.includes("429") || error?.message?.includes("RESOURCE_EXHAUSTED") || error?.status === "RESOURCE_EXHAUSTED") {
+        setApiQuotaExceeded(true);
+      }
+
+      // Set fallback image on error
+      setAiImages(prev => {
+        const currentImages = prev[post.id] || [];
+        const updatedImages = [...currentImages];
+        if (index === 0) {
+          return {
+            ...prev,
+            [post.id]: [fallbackImage, ...currentImages.filter(img => img !== fallbackImage)].slice(0, 5)
+          };
+        }
+        updatedImages[index] = fallbackImage;
+        return {
+          ...prev,
+          [post.id]: updatedImages.slice(0, 5)
+        };
+      });
     } finally {
       setIsGeneratingImage(false);
       setGeneratingIds(prev => {
@@ -256,6 +336,19 @@ export default function App() {
 
     return results;
   }, [searchQuery, selectedCategory, fuse]);
+
+  const faqs = [
+    { q: "How to get a Trade License?", a: "Apply to the local City Corporation or Municipality office with your business documents, rent agreement, and TIN certificate." },
+    { q: "What is the deadline for VAT filing?", a: "VAT returns (Form Mushak 9.1) must be filed by the 15th day of the following month." },
+    { q: "What are the requirements for RJSC registration?", a: "You need a unique name clearance, memorandum and articles of association, and details of shareholders and directors." },
+    { q: "How to obtain a TIN certificate?", a: "You can apply online through the NBR website using your National ID." },
+    { q: "What is the minimum capital for a private limited company?", a: "There is no statutory minimum capital requirement for a private limited company in Bangladesh." },
+    { q: "How to register a trademark?", a: "Trademark registration is done through the Department of Patents, Designs and Trademarks (DPDT)." },
+    { q: "What is the process for work permit for foreigners?", a: "Foreigners need to apply through the Bangladesh Investment Development Authority (BIDA)." },
+    { q: "How to file income tax return?", a: "Income tax returns must be filed annually with the NBR within the stipulated deadline." },
+    { q: "What is the role of RJSC?", a: "RJSC (Registrar of Joint Stock Companies and Firms) is the authority for registering companies and firms in Bangladesh." },
+    { q: "How to renew a trade license?", a: "Trade licenses must be renewed annually at the issuing City Corporation or Municipality office." }
+  ];
 
   const paginate = (pageNumber: number) => {
     setCurrentPage(pageNumber);
@@ -385,7 +478,6 @@ export default function App() {
                 </div>
 
                 <a href="https://client.elawyersbd.com/#/appointment" target="_blank" rel="noopener noreferrer" className="px-3 py-2 rounded-md text-sm font-semibold text-slate-700 hover:bg-slate-100 hover:text-blue-600 transition">Consultation</a>
-                <button onClick={() => setActiveTab('tracker')} className={`px-3 py-2 rounded-md text-sm font-semibold transition ${activeTab === 'tracker' ? 'text-blue-600 bg-blue-50 dark:bg-blue-900/20' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-blue-600'}`}>Track Case</button>
                 <a href="https://elawyersbd.com" target="_blank" rel="noopener noreferrer" className="px-3 py-2 rounded-md text-sm font-semibold text-slate-700 hover:bg-slate-100 hover:text-blue-600 transition">About Us</a>
                 <a href="https://client.elawyersbd.com" target="_blank" rel="noopener noreferrer" className="ml-2 lg:ml-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md text-sm font-bold text-white transition shadow-sm flex items-center gap-2">Client Portal</a>
               </div>
@@ -492,16 +584,6 @@ export default function App() {
                     <Tag className="h-5 w-5 text-blue-500" />
                     <span className="flex-1 text-left">Legal and Business Guidelines</span>
                     <ChevronRight className="h-5 w-5 text-slate-400" />
-                  </button>
-
-                  <button 
-                    onClick={() => {
-                      setActiveTab('tracker');
-                      setIsMobileMenuOpen(false);
-                    }}
-                    className="flex items-center p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 text-slate-700 dark:text-slate-300 font-bold transition-all border border-transparent hover:border-blue-100 dark:hover:border-blue-900/30"
-                  >
-                    <Search className="h-5 w-5 mr-4 text-blue-500" /> Track Case
                   </button>
 
                   <a href="https://client.elawyersbd.com/#/appointment" target="_blank" rel="noopener noreferrer" className="flex items-center p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 text-slate-700 dark:text-slate-300 font-bold transition-all border border-transparent hover:border-blue-100 dark:hover:border-blue-900/30">
@@ -632,25 +714,29 @@ export default function App() {
                 )}
               </div>
             </motion.div>
-            <div className="bg-white dark:bg-slate-900/50 rounded-[2.5rem] p-6 md:p-10 shadow-2xl shadow-blue-100/50 dark:shadow-none border border-slate-100 dark:border-slate-800 mb-16 text-center">
-              <h2 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white mb-8 tracking-tight">Explore Legal & Business Categories</h2>
-              <div className="grid grid-cols-4 gap-2 md:gap-4">
-                {categories.map((cat, index) => (
-                  <motion.button 
-                    key={index} 
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => {
-                      setSelectedCategory(cat);
-                      setCurrentPage(1);
-                    }} 
-                    className={`px-2 md:px-4 py-3 md:py-4 rounded-2xl text-[9px] md:text-sm font-bold transition-all shadow-sm border flex items-center justify-center text-center h-full min-h-[60px] md:min-h-[80px] ${selectedCategory === cat ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-200 dark:shadow-none' : 'bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 border-transparent hover:bg-white dark:hover:bg-slate-800 hover:border-blue-200 dark:hover:border-blue-700'}`}
-                  >
-                    {cat}
-                  </motion.button>
-                ))}
+            <div className="flex flex-col gap-8 mb-8">
+              <div className="bg-blue-50 dark:bg-slate-900 rounded-xl p-6 md:p-10 shadow-xl shadow-blue-100/50 dark:shadow-none border border-blue-100 dark:border-slate-800 text-center">
+                <h2 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white mb-8 tracking-tight">Explore Legal & Business Categories</h2>
+                <div className="grid grid-cols-3 md:grid-cols-4 gap-2 md:gap-4">
+                  {categories.map((cat, index) => (
+                    <motion.button 
+                      key={index} 
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => {
+                        setSelectedCategory(cat);
+                        setCurrentPage(1);
+                      }} 
+                      className={`px-2 md:px-3 py-2 md:py-2.5 rounded-xl text-[9px] md:text-xs font-bold transition-all shadow-sm border flex items-center justify-center text-center h-full min-h-[50px] md:min-h-[60px] ${selectedCategory === cat ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-200 dark:shadow-none' : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-blue-50 dark:hover:bg-slate-700 hover:border-blue-200 dark:hover:border-blue-600'}`}
+                    >
+                      {cat}
+                    </motion.button>
+                  ))}
+                </div>
               </div>
             </div>
+            
+            <LegalAssistant />
             {currentPosts.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {currentPosts.map((post, idx) => (
@@ -741,6 +827,29 @@ export default function App() {
                 </button>
               </div>
             )}
+
+            {/* FAQ Section */}
+            <div className="mt-12 mb-8">
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-6 text-center">Frequently Asked Questions</h2>
+              <div className="space-y-4">
+                {faqs.map((faq, index) => (
+                  <div key={index} className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+                    <button 
+                      onClick={() => setOpenFaqIndex(openFaqIndex === index ? null : index)}
+                      className="w-full text-left p-6 font-bold text-slate-900 dark:text-white flex justify-between items-center"
+                    >
+                      {faq.q}
+                      <ChevronDown className={`h-5 w-5 transition-transform ${openFaqIndex === index ? 'rotate-180' : ''}`} />
+                    </button>
+                    {openFaqIndex === index && (
+                      <div className="p-6 pt-0 text-slate-600 dark:text-slate-400 text-sm border-t border-slate-100 dark:border-slate-700">
+                        {faq.a}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 
@@ -756,6 +865,9 @@ export default function App() {
                   <div className="flex items-center"><User className="h-4 w-4 mr-1 md:mr-2" /> By <span className="text-slate-200 font-medium ml-1">{selectedPost.author}</span></div>
                   <div className="flex items-center"><Calendar className="h-4 w-4 mr-1 md:mr-2" /> Published on {selectedPost.date}</div>
                   <div className="flex items-center"><Clock className="h-4 w-4 mr-1 md:mr-2" /> {selectedPost.readTime}</div>
+                </div>
+                <div className="mt-6 pt-6 border-t border-slate-700 dark:border-slate-800">
+                  <SocialShareButtons title={selectedPost.title} url={window.location.href} lightText={true} />
                 </div>
               </div>
 
@@ -823,61 +935,140 @@ export default function App() {
               </div>
 
               <div className="p-5 md:p-12 space-y-8 md:space-y-12">
-                <section className="flex flex-col sm:flex-row gap-3 sm:gap-6">
-                  <div className="flex-shrink-0"><div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center"><BookOpen className="h-6 w-6 text-blue-600 dark:text-blue-400" /></div></div>
-                  <div><h2 className="text-lg md:text-xl font-bold text-slate-900 dark:text-white mb-3 mt-1 sm:mt-0">Official Guidelines & Regulations</h2><p className="text-sm md:text-base text-slate-700 dark:text-slate-300 leading-relaxed">{selectedPost.guidelines}</p></div>
-                </section>
-                <hr className="border-slate-100 dark:border-slate-800" />
-                <section className="flex flex-col sm:flex-row gap-3 sm:gap-6">
-                  <div className="flex-shrink-0"><div className="w-12 h-12 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center"><Clock className="h-6 w-6 text-orange-600 dark:text-orange-400" /></div></div>
-                  <div><h2 className="text-lg md:text-xl font-bold text-slate-900 dark:text-white mb-3 mt-1 sm:mt-0">Specific Deadlines</h2><p className="text-sm md:text-base text-slate-700 dark:text-slate-300 leading-relaxed">{selectedPost.deadlines}</p></div>
-                </section>
-                <hr className="border-slate-100 dark:border-slate-800" />
-                <section className="flex flex-col sm:flex-row gap-3 sm:gap-6">
-                  <div className="flex-shrink-0"><div className="w-12 h-12 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center"><Briefcase className="h-6 w-6 text-green-600 dark:text-green-400" /></div></div>
-                  <div><h2 className="text-lg md:text-xl font-bold text-slate-900 dark:text-white mb-3 mt-1 sm:mt-0">Current Rates & Metrics</h2><p className="text-sm md:text-base text-slate-700 dark:text-slate-300 leading-relaxed">{selectedPost.rates}</p></div>
-                </section>
-                <hr className="border-slate-100 dark:border-slate-800" />
-                <section className="flex flex-col sm:flex-row gap-3 sm:gap-6">
-                  <div className="flex-shrink-0"><div className="w-12 h-12 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center"><FileCheck className="h-6 w-6 text-purple-600 dark:text-purple-400" /></div></div>
-                  <div><h2 className="text-lg md:text-xl font-bold text-slate-900 dark:text-white mb-3 mt-1 sm:mt-0">Mandatory Documents</h2><p className="text-sm md:text-base text-slate-700 dark:text-slate-300 leading-relaxed">{selectedPost.documents}</p></div>
-                </section>
-                <hr className="border-slate-100 dark:border-slate-800" />
-                <section className="flex flex-col sm:flex-row gap-3 sm:gap-6">
-                  <div className="flex-shrink-0"><div className="w-12 h-12 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center"><Building className="h-6 w-6 text-indigo-600 dark:text-indigo-400" /></div></div>
-                  <div className="w-full">
-                    <h2 className="text-lg md:text-xl font-bold text-slate-900 dark:text-white mb-6 mt-1 sm:mt-0 flex items-center gap-2">
-                      <ListChecks className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-                      Step-by-Step Process
-                    </h2>
-                    <div className="relative space-y-8 pl-4 border-l-2 border-blue-100 dark:border-blue-900/50 ml-2">
-                      {selectedPost.process.map((step: any, idx: number) => (
-                        <div key={idx} className="relative group">
-                          <div className="absolute -left-[25px] top-0 w-4 h-4 rounded-full bg-white dark:bg-slate-900 border-2 border-blue-600 group-hover:bg-blue-600 transition-colors z-10" />
-                          <div className="bg-white dark:bg-slate-800 p-4 md:p-6 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm hover:shadow-md transition-all group-hover:border-blue-200 dark:group-hover:border-blue-800">
-                            <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-1 block">Step {idx + 1}</span>
-                            <p className="text-sm md:text-base text-slate-700 dark:text-slate-300 leading-relaxed font-medium">{step}</p>
-                          </div>
-                        </div>
-                      ))}
+                {selectedPost.isCustomComponent && selectedPost.customComponentId === "CorporateRegistrationPost" ? (
+                  <CorporateRegistrationPost />
+                ) : selectedPost.isCustomComponent && selectedPost.customComponentId === "CompanyTaxReturnPost" ? (
+                  <CompanyTaxReturnPost />
+                ) : (
+                  <>
+                    <section className="flex flex-col sm:flex-row gap-3 sm:gap-6">
+                      <div className="flex-shrink-0"><div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center"><BookOpen className="h-6 w-6 text-blue-600 dark:text-blue-400" /></div></div>
+                      <div><h2 className="text-lg md:text-xl font-bold text-slate-900 dark:text-white mb-3 mt-1 sm:mt-0">Official Guidelines & Regulations</h2><p className="text-sm md:text-base text-slate-700 dark:text-slate-300 leading-relaxed">{selectedPost.guidelines}</p></div>
+                    </section>
+                    <hr className="border-slate-100 dark:border-slate-800" />
+                    <section className="flex flex-col sm:flex-row gap-3 sm:gap-6">
+                      <div className="flex-shrink-0"><div className="w-12 h-12 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center"><Clock className="h-6 w-6 text-orange-600 dark:text-orange-400" /></div></div>
+                      <div><h2 className="text-lg md:text-xl font-bold text-slate-900 dark:text-white mb-3 mt-1 sm:mt-0">Specific Deadlines</h2><p className="text-sm md:text-base text-slate-700 dark:text-slate-300 leading-relaxed">{selectedPost.deadlines}</p></div>
+                    </section>
+                    <hr className="border-slate-100 dark:border-slate-800" />
+                    <section className="flex flex-col sm:flex-row gap-3 sm:gap-6">
+                      <div className="flex-shrink-0"><div className="w-12 h-12 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center"><Briefcase className="h-6 w-6 text-green-600 dark:text-green-400" /></div></div>
+                      <div><h2 className="text-lg md:text-xl font-bold text-slate-900 dark:text-white mb-3 mt-1 sm:mt-0">Current Rates & Metrics</h2><p className="text-sm md:text-base text-slate-700 dark:text-slate-300 leading-relaxed">{selectedPost.rates}</p></div>
+                    </section>
+                    <hr className="border-slate-100 dark:border-slate-800" />
+                    <div className="flex justify-center my-4">
+                      <SocialShareButtons title={selectedPost.title} url={window.location.href} />
                     </div>
-                  </div>
-                </section>
-                <hr className="border-slate-100 dark:border-slate-800" />
-                <section className="flex flex-col sm:flex-row gap-3 sm:gap-6 p-5 md:p-8 bg-red-50 dark:bg-red-950/20 rounded-xl border border-red-100 dark:border-red-900/30">
-                  <div className="flex-shrink-0"><AlertCircle className="h-8 w-8 text-red-600 dark:text-red-500" /></div>
-                  <div><h2 className="text-lg md:text-xl font-bold text-red-900 dark:text-red-300 mb-3 mt-1 sm:mt-0">Penalties & Legal Consequences</h2><p className="text-sm md:text-base text-red-800 dark:text-red-400 leading-relaxed">{selectedPost.penalties}</p></div>
-                </section>
+                    <hr className="border-slate-100 dark:border-slate-800" />
+                    <section className="flex flex-col sm:flex-row gap-3 sm:gap-6">
+                      <div className="flex-shrink-0"><div className="w-12 h-12 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center"><FileCheck className="h-6 w-6 text-purple-600 dark:text-purple-400" /></div></div>
+                      <div><h2 className="text-lg md:text-xl font-bold text-slate-900 dark:text-white mb-3 mt-1 sm:mt-0">Mandatory Documents</h2><p className="text-sm md:text-base text-slate-700 dark:text-slate-300 leading-relaxed">{selectedPost.documents}</p></div>
+                    </section>
+                    <hr className="border-slate-100 dark:border-slate-800" />
+                    <section className="flex flex-col sm:flex-row gap-3 sm:gap-6">
+                      <div className="flex-shrink-0"><div className="w-12 h-12 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center"><Building className="h-6 w-6 text-indigo-600 dark:text-indigo-400" /></div></div>
+                      <div className="w-full">
+                        <h2 className="text-lg md:text-xl font-bold text-slate-900 dark:text-white mb-6 mt-1 sm:mt-0 flex items-center gap-2">
+                          <ListChecks className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                          Step-by-Step Process
+                        </h2>
+                        <div className="relative space-y-8 pl-4 border-l-2 border-blue-100 dark:border-blue-900/50 ml-2">
+                          {selectedPost.process.map((step: any, idx: number) => (
+                            <div key={idx} className="relative group">
+                              <div className="absolute -left-[25px] top-0 w-4 h-4 rounded-full bg-white dark:bg-slate-900 border-2 border-blue-600 group-hover:bg-blue-600 transition-colors z-10" />
+                              <div className="bg-white dark:bg-slate-800 p-4 md:p-6 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm hover:shadow-md transition-all group-hover:border-blue-200 dark:group-hover:border-blue-800">
+                                <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-1 block">Step {idx + 1}</span>
+                                <p className="text-sm md:text-base text-slate-700 dark:text-slate-300 leading-relaxed font-medium">{step}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </section>
+                    <hr className="border-slate-100 dark:border-slate-800" />
+                    <section className="flex flex-col sm:flex-row gap-3 sm:gap-6 p-5 md:p-8 bg-red-50 dark:bg-red-950/20 rounded-xl border border-red-100 dark:border-red-900/30">
+                      <div className="flex-shrink-0"><AlertCircle className="h-8 w-8 text-red-600 dark:text-red-500" /></div>
+                      <div><h2 className="text-lg md:text-xl font-bold text-red-900 dark:text-red-300 mb-3 mt-1 sm:mt-0">Penalties & Legal Consequences</h2><p className="text-sm md:text-base text-red-800 dark:text-red-400 leading-relaxed">{selectedPost.penalties}</p></div>
+                    </section>
+                  </>
+                )}
 
-                <div className="mt-8 md:mt-12 pt-6 md:pt-8 border-t border-slate-200 dark:border-slate-800 transition-colors">
+                <div className="mt-8 md:mt-12 pt-6 md:pt-8 border-t border-slate-200 dark:border-slate-800 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-6">
                   <div className="flex flex-wrap items-center gap-2">
                     <Tag className="h-4 w-4 md:h-5 md:w-5 text-slate-400 dark:text-slate-500" />
                     <span className="font-medium text-slate-700 dark:text-slate-300 mr-1 md:mr-2 text-sm md:text-base">Tags:</span>
                     {selectedPost.tags.map((tag: any, idx: number) => (<span key={idx} className="px-3 py-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-full text-[10px] md:text-xs font-medium hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer transition">{tag}</span>))}
                   </div>
+                  
+                  <SocialShareButtons title={selectedPost.title} url={window.location.href} />
                 </div>
               </div>
             </article>
+
+            {/* Comments Section */}
+            <div className="mt-10 md:mt-12 bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-6 md:p-8 transition-colors">
+              <h3 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-2">
+                <MessageSquare className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                Comments ({comments[selectedPost.id]?.length || 0})
+              </h3>
+
+              {/* Comment Form */}
+              <form onSubmit={handleCommentSubmit} className="mb-8">
+                <div className="mb-4">
+                  <label htmlFor="commentName" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Name</label>
+                  <input
+                    type="text"
+                    id="commentName"
+                    value={commentName}
+                    onChange={(e) => setCommentName(e.target.value)}
+                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white transition-colors"
+                    placeholder="Your name"
+                    required
+                  />
+                </div>
+                <div className="mb-4">
+                  <label htmlFor="commentText" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Comment</label>
+                  <textarea
+                    id="commentText"
+                    value={commentText}
+                    onChange={(e) => setCommentText(e.target.value)}
+                    rows={4}
+                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white transition-colors resize-none"
+                    placeholder="Share your thoughts..."
+                    required
+                  ></textarea>
+                </div>
+                <button
+                  type="submit"
+                  className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors shadow-sm"
+                >
+                  Post Comment
+                </button>
+              </form>
+
+              {/* Comments List */}
+              <div className="space-y-6">
+                {(comments[selectedPost.id] || []).map((comment, idx) => (
+                  <div key={idx} className="flex gap-4 p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 transition-colors">
+                    <div className="flex-shrink-0">
+                      <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-700 dark:text-blue-400 font-bold text-sm border border-blue-200 dark:border-blue-800">
+                        {comment.name.charAt(0).toUpperCase()}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <h4 className="font-bold text-slate-900 dark:text-white">{comment.name}</h4>
+                        <span className="text-xs text-slate-500 dark:text-slate-400">{comment.date}</span>
+                      </div>
+                      <p className="text-slate-700 dark:text-slate-300 text-sm md:text-base leading-relaxed whitespace-pre-wrap">{comment.text}</p>
+                    </div>
+                  </div>
+                ))}
+                {(!comments[selectedPost.id] || comments[selectedPost.id].length === 0) && (
+                  <p className="text-slate-500 dark:text-slate-400 text-center py-6 italic">No comments yet. Be the first to share your thoughts!</p>
+                )}
+              </div>
+            </div>
 
             {getRelatedPosts().length > 0 && (
               <div className="mt-10 md:mt-12">
@@ -927,84 +1118,10 @@ export default function App() {
             )}
           </div>
         )}
-        {activeTab === "tracker" && (
-          <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-20">
-            <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 md:p-12 shadow-2xl shadow-blue-100/50 dark:shadow-none border border-slate-100 dark:border-slate-800 text-center">
-              <div className="w-20 h-20 bg-blue-50 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
-                <Search className="h-10 w-10 text-blue-600 dark:text-blue-400" />
-              </div>
-              <h2 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white mb-4">Track Your Case</h2>
-              <p className="text-slate-600 dark:text-slate-400 mb-8 max-w-lg mx-auto">
-                Enter your Case ID or Reference Number below to check the real-time status of your legal proceedings.
-              </p>
-              
-              <form onSubmit={(e) => { e.preventDefault(); handleTrackCase(); }} className="max-w-md mx-auto relative">
-                <input 
-                  type="text" 
-                  value={trackingId}
-                  onChange={(e) => setTrackingId(e.target.value)}
-                  placeholder="e.g., EL-2026-8492" 
-                  className="w-full pl-6 pr-32 py-4 rounded-full border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                  required
-                />
-                <button 
-                  type="submit" 
-                  disabled={isTracking}
-                  className="absolute right-2 top-2 bottom-2 px-6 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-full transition-colors flex items-center justify-center disabled:opacity-70"
-                >
-                  {isTracking ? <Loader2 className="h-5 w-5 animate-spin" /> : "Track"}
-                </button>
-              </form>
-
-              {trackingResult && (
-                <motion.div 
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="mt-10 text-left bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-6 border border-slate-100 dark:border-slate-700"
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 pb-4 border-b border-slate-200 dark:border-slate-700">
-                    <div>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider font-bold mb-1">Case Reference</p>
-                      <p className="text-lg font-bold text-slate-900 dark:text-white">{trackingResult.id}</p>
-                    </div>
-                    <div className="sm:text-right">
-                      <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider font-bold mb-1">Status</p>
-                      <span className="inline-block px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-sm font-bold rounded-full">
-                        {trackingResult.status}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    <div>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 font-bold mb-1">Last Updated</p>
-                      <p className="text-sm text-slate-700 dark:text-slate-300">{trackingResult.lastUpdated}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 font-bold mb-1">Next Hearing / Action</p>
-                      <p className="text-sm text-slate-700 dark:text-slate-300">{trackingResult.nextAction}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 font-bold mb-1">Remarks</p>
-                      <p className="text-sm text-slate-700 dark:text-slate-300">{trackingResult.remarks}</p>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-            </div>
-          </div>
-        )}
       </main>
 
-      <footer className="bg-slate-900 dark:bg-black text-slate-400 py-10 text-center border-t border-slate-800 mt-12 transition-colors">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col items-center">
-          <div className="bg-white dark:bg-slate-800 px-4 py-2 rounded-lg mb-6 shadow-sm inline-block transition-colors">
-            <img src="https://elawyersbd.com/wp-content/uploads/2024/12/Logo_E-Layers-02.png" alt="E-Lawyers Logo" className="h-10 md:h-12 w-auto object-contain" referrerPolicy="no-referrer" />
-          </div>
-          <p className="text-sm font-medium">© 2026 E-Lawyers. All rights reserved.</p>
-          <p className="text-[10px] md:text-xs mt-3 text-slate-500 px-4 max-w-xl">Disclaimer: This guide provides general information and does not constitute formal legal advice.</p>
-        </div>
-      </footer>
+      <Footer />
+      <Chatbot />
     </div>
   );
 }
